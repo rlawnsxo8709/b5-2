@@ -10,7 +10,7 @@
 | 외부 라이브러리 | **없음** (`hashlib`, `shlex`, `datetime`, `collections.deque`) |
 | 저장 방식 | 메모리 (프로세스를 끝내면 사라진다. 영속성은 미션 범위 밖) |
 | 핵심 알고리즘 | Kahn 위상 정렬 · 무방향 BFS 최단 경로 · 조상 BFS · 병합 정렬 · 역색인 |
-| 테스트 | `unittest` 61개 |
+| 테스트 | `unittest` 63개 |
 
 설계 결정은 [PLAN.md](PLAN.md), 과제 목표·평가 문항 답변은 [EXPLAIN.md](EXPLAIN.md)에 있다.
 
@@ -41,7 +41,7 @@ cd b5-2
 python3 main.py
 ```
 
-`mini-git> ` 프롬프트가 뜨면 명령을 입력한다. `exit` 또는 `quit`으로 끝내고, 입력이 끝나는 EOF(Ctrl-D)에서도 정상 종료한다(종료 코드 0).
+`mini-git> ` 프롬프트가 뜨면 명령을 입력한다. `exit` 또는 `quit`으로 끝내고, 입력이 끝나는 EOF(Ctrl-D)나 Ctrl-C에서도 트레이스백 없이 줄바꿈 후 정상 종료한다(종료 코드 0).
 빈 줄은 무시한다. 파이프로도 실행할 수 있다.
 
 ```bash
@@ -303,7 +303,7 @@ Bye
 │   ├── repository.py        상태 소유: 저장소·브랜치·HEAD·사용자·자식 목록
 │   ├── cli.py               파싱·분기·출력, REPL
 │   └── __main__.py          `python -m mini_git`
-├── tests/                   unittest 61개 (단위 · CLI/REPL · 제약 준수 AST 검사)
+├── tests/                   unittest 63개 (단위 · CLI/REPL · 제약 준수 AST 검사)
 └── README.md  PLAN.md  EXPLAIN.md
 ```
 
@@ -352,7 +352,7 @@ Bye
 
 **REPL · 제출물**
 
-- [x] `mini-git> ` 프롬프트에서 명령을 반복 입력, `exit`/`quit` 종료 — `mini_git/cli.py:169` · `TestRepl`
+- [x] `mini-git> ` 프롬프트에서 명령을 반복 입력, `exit`/`quit` 종료(EOF·Ctrl-C도 정상 종료) — `mini_git/cli.py:169` · `TestRepl`
 - [x] 엔트리 포인트 `main.py` 1개 + `README.md` 1개 — `python main.py`
 
 **제약 사항**
@@ -372,7 +372,7 @@ python3 -m unittest discover -s tests -t . -v
 실행 결과(마지막 3줄):
 
 ```
-Ran 61 tests in 0.087s
+Ran 63 tests in 0.070s
 
 OK
 ```
@@ -383,7 +383,7 @@ OK
 | `test_graph.py` | 9 | 부모 우선 위상 순서, 입력이 생성 순서가 아닌 경우, 사이클, 최단 경로, 사전순 동률, 연결 없음, 조상(합류 지점 중복 없음) |
 | `test_index.py` | 6 | 토큰화, 대소문자 무시, 다중 토큰 교집합, 존재하지 않는 토큰, 작성자 정확 일치 |
 | `test_repository.py` | 17 | INIT 전 모든 연산 차단, 브랜치·커밋 흐름, 해시 충돌 주입, 같은 초 커밋의 seq 정렬, 시계가 뒤로 간 경우, 연결 없는 두 루트 |
-| `test_cli.py` | 20 | 출력 형식 전체, 따옴표 인자, INIT 전 안내, 에러 표준, 옵션 대소문자 규칙, 라벨, REPL 세션(프로세스 실행 포함)·EOF·종료 |
+| `test_cli.py` | 22 | 출력 형식 전체, 따옴표 인자, INIT 전 안내, 에러 표준, 옵션 대소문자 규칙, 라벨, REPL 세션(프로세스 실행 포함)·EOF·종료·Ctrl-C |
 | `test_constraints.py` | 3 | AST 검사: `sorted`·`.sort`·`heapq`·`bisect`·`networkx`·`graphlib`·외부 import 0건, 검사기 자체가 위반을 잡는지 |
 
 테스트는 mock을 쓰지 않는다. 시간과 해시 충돌만 `Repository(clock=..., hash_func=...)`로 주입하고, REPL은 실제 `main.py` 프로세스를 실행해 검증한다.
@@ -393,6 +393,7 @@ OK
 
 - **`--sort-by=author`의 다중 작성자**: `INIT`은 저장소당 한 번이고 사용자를 바꾸는 명령이 미션에 없다. 그래서 CLI 세션에서는 작성자가 한 명뿐이다. 여러 작성자가 섞인 정렬은 `Repository.user`를 직접 바꾸는 단위 테스트(`test_log_sorted_by_author_ties_by_seq`, `test_author_search_and_sort`)로 검증했다.
 - **`LOG` 순서와 생성 순서**: 커밋의 부모는 항상 먼저 만들어졌으므로 위상 순서는 지금 구조에서 생성 순서와 같게 나온다. 그래도 Kahn 알고리즘으로 "부모 우선"과 사이클 검출을 알고리즘이 직접 보장하게 했다([EXPLAIN.md](EXPLAIN.md) Q13).
+- **실제 그래프 모양**: `Commit.parents`는 0개 이상을 담지만 merge(보너스)를 구현하지 않아 CLI가 만드는 커밋은 부모가 0~1개다. 그래서 CLI 세션의 그래프는 트리(루트가 여럿이면 숲)이고, 부모가 둘인 합류 지점이 필요한 동작(PATH의 사전순 동률, ANCESTORS의 다이아몬드 중복 제거)은 손으로 만든 그래프를 쓰는 단위 테스트(`tests/test_graph.py`)로만 검증된다([EXPLAIN.md](EXPLAIN.md) 1·3번).
 - **`SEARCH`의 `--`로 시작하는 키워드**: `--author=<name>` 외의 `--xxx`는 옵션 오류(`Invalid args`)로 본다.
 - **`SEARCH` 다중 단어**: `SEARCH "add login"`은 `add`와 `login`이 **모두** 든 커밋(교집합)이다.
 - **해시 공간**: 7자리 16진수(약 2.7억 가지)다. 충돌은 salt를 올려 다시 해시하므로 유일성은 항상 보장되지만, 커밋이 매우 많아지면 재해시가 늘어난다.

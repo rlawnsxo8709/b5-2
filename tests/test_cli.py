@@ -191,6 +191,18 @@ class TestCli(unittest.TestCase):
         self.assertEqual(execute(self.r, "exit now"), "Invalid args")
 
 
+class InterruptingStdin:
+    """준비된 줄을 돌려준 뒤, 다음 readline에서 Ctrl-C(KeyboardInterrupt)를 일으키는 가짜 stdin."""
+
+    def __init__(self, lines):
+        self.lines = list(lines)
+
+    def readline(self):
+        if self.lines:
+            return self.lines.pop(0)
+        raise KeyboardInterrupt
+
+
 class TestRepl(unittest.TestCase):
     def run_repl(self, text):
         out = io.StringIO()
@@ -211,6 +223,29 @@ class TestRepl(unittest.TestCase):
         code, out = self.run_repl("exit now\nquit\nlog\n")
         self.assertEqual(code, 0)
         self.assertEqual(out, "mini-git> Invalid args\nmini-git> Bye\n")
+
+    def run_interrupted(self, lines):
+        """Ctrl-C가 REPL 밖으로 새면 테스트 러너가 통째로 중단되므로, 새는 경우를 실패로 바꾼다."""
+        out = io.StringIO()
+        try:
+            code = repl(InterruptingStdin(lines), out)
+        except KeyboardInterrupt:
+            self.fail("KeyboardInterrupt가 REPL 밖으로 새어 나왔다")
+        return code, out.getvalue()
+
+    def test_ctrl_c_at_prompt_exits_cleanly(self):
+        code, out = self.run_interrupted(['init "A"\n'])
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            out,
+            "mini-git> Initialized repository.\nCurrent branch: main\nCurrent user: A\n"
+            "mini-git> \n",
+        )
+
+    def test_ctrl_c_at_first_prompt(self):
+        code, out = self.run_interrupted([])
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "mini-git> \n")
 
     def test_session_and_eof(self):
         p = subprocess.run(
@@ -235,6 +270,8 @@ class TestRepl(unittest.TestCase):
             cwd=ROOT,
             timeout=10,
         )
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(p.stderr, "")
         self.assertIn("Bye", p.stdout)
 
 
