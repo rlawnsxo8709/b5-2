@@ -28,7 +28,6 @@ answers/                     ← 이 폴더가 곧 rlawnsxo8709/b5-2 저장소�
 │   └── cli.py               파싱 · 분기 · 출력, REPL
 ├── tests/                   단위 + CLI/REPL 테스트 + 제약 준수(AST) 검사 (표준 unittest)
 ├── README.md                사용 가이드 (실행·명령 표·출력 예시·에러 표준·체크리스트)
-├── EXPLAIN.md               과제 목표 5문항 + 평가 문항 Q1~Q20 답변
 └── PLAN.md                  이 문서
 ```
 
