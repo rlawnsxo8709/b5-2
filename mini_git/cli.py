@@ -167,17 +167,25 @@ def is_exit(line):
 
 
 def repl(stdin=sys.stdin, stdout=sys.stdout):
-    """`mini-git> ` 프롬프트로 명령을 반복 실행한다. exit/quit 또는 EOF에서 종료 코드 0을 돌려준다."""
+    """`mini-git> ` 프롬프트로 명령을 반복 실행한다.
+
+    exit/quit(`Bye` 출력), EOF와 Ctrl-C(줄바꿈 출력)에서 종료 코드 0을 돌려준다.
+    Ctrl-C(KeyboardInterrupt)는 트레이스백 대신 EOF와 같은 방식으로 끝낸다.
+    """
     repo = Repository()
-    while True:
-        stdout.write(PROMPT)
-        stdout.flush()
-        line = stdin.readline()
-        if line == "":  # EOF
-            stdout.write("\n")
-            return 0
-        output = execute(repo, line)
-        if output:
-            stdout.write(output + "\n")
-        if is_exit(line):
-            return 0
+    try:
+        while True:
+            stdout.write(PROMPT)
+            stdout.flush()
+            line = stdin.readline()
+            if line == "":  # EOF
+                stdout.write("\n")
+                return 0
+            output = execute(repo, line)
+            if output:
+                stdout.write(output + "\n")
+            if is_exit(line):
+                return 0
+    except KeyboardInterrupt:
+        stdout.write("\n")
+        return 0
