@@ -42,7 +42,7 @@ class TestGraph(unittest.TestCase):
         self.assertIsNone(shortest_path("a", "x", neighbors))
 
     def test_lexicographic_tie_break(self):
-        # s의 부모 m1, m2 모두 t의 부모 -> s-m1-t / s-m2-t 동률 -> m1 선택
+        # t가 m1, m2의 부모이고 m1, m2가 모두 s의 부모 -> s-m1-t / s-m2-t 동률 -> m1 선택
         Q = {"t": (), "m2": ("t",), "m1": ("t",), "s": ("m2", "m1")}
 
         def nb(h):
