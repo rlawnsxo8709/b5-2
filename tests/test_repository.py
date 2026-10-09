@@ -6,6 +6,12 @@ from mini_git.errors import MiniGitError
 from mini_git.repository import Repository
 
 
+def sorted_hashes(root, m, f, mh, fh):
+    """merge 커밋의 조상 기대값: 가까운 순(거리 1은 해시 오름차순), 그다음 root."""
+    near = [mh, fh] if mh < fh else [fh, mh]
+    return near + [root.hash]
+
+
 class Clock:
     """테스트용 시계. 값을 직접 움직여 같은 초·시간 차이를 재현한다."""
 
@@ -202,6 +208,80 @@ class TestRepository(unittest.TestCase):
         r.init("A")
         c = r.commit("x")
         self.assertEqual(r.path(c.hash, c.hash), [c.hash])
+
+    def _diverged(self):
+        """root에서 main(m)과 feature(f)가 갈라진 저장소."""
+        r = self.r
+        r.init("A")
+        root = r.commit("root")
+        r.branch("feature")
+        m = r.commit("on main")
+        r.switch("feature")
+        f = r.commit("on feature")
+        r.switch("main")
+        return root, m, f
+
+    def test_merge_creates_commit_with_two_parents(self):
+        r = self.r
+        root, m, f = self._diverged()
+        status, c = r.merge("feature")
+        self.assertEqual(status, "merge")
+        self.assertEqual(c.parents, (m.hash, f.hash))
+        self.assertEqual(r.head_commit, c.hash)
+        self.assertEqual(c.message, "Merge branch 'feature' into main")
+        self.assertEqual([x.hash for x in r.ancestors(c.hash)], sorted_hashes(root, m, f, m.hash, f.hash))
+        self.assertEqual(r.search_keyword("merge")[0].hash, c.hash)
+
+    def test_merge_log_keeps_parents_first_and_path_uses_both_parents(self):
+        r = self.r
+        root, m, f = self._diverged()
+        _, c = r.merge("feature")
+        order = [x.hash for x in r.log()]
+        for commit in (root, m, f):
+            self.assertLess(order.index(commit.hash), order.index(c.hash))
+        self.assertEqual(r.path(f.hash, c.hash), [f.hash, c.hash])
+
+    def test_merge_fast_forward_and_up_to_date(self):
+        r = self.r
+        r.init("A")
+        root = r.commit("root")
+        r.branch("feature")
+        r.switch("feature")
+        f = r.commit("on feature")
+        r.switch("main")
+        self.assertEqual(r.merge("feature"), ("fast-forward", None))
+        self.assertEqual(r.head_commit, f.hash)
+        self.assertEqual(r.merge("feature"), ("up-to-date", None))
+        self.assertEqual(r.merge("main"), ("up-to-date", None))
+        r.switch("feature")
+        r.branch("older")
+        self.assertEqual(r.merge("older"), ("up-to-date", None))
+
+    def test_merge_errors_and_empty_branches(self):
+        r = self.r
+        with self.assertRaisesRegex(MiniGitError, "not initialized"):
+            r.merge("x")
+        r.init("A")
+        with self.assertRaisesRegex(MiniGitError, "Unknown branch: nope"):
+            r.merge("nope")
+        r.branch("empty")
+        self.assertEqual(r.merge("empty"), ("up-to-date", None))
+        r.switch("empty")
+        c = r.commit("x")
+        r.switch("main")
+        self.assertEqual(r.merge("empty"), ("fast-forward", None))
+        self.assertEqual(r.head_commit, c.hash)
+
+    def test_merge_twice_after_more_work_makes_new_merge(self):
+        r = self.r
+        self._diverged()
+        _, first = r.merge("feature")
+        r.switch("feature")
+        f2 = r.commit("more feature")
+        r.switch("main")
+        status, second = r.merge("feature")
+        self.assertEqual(status, "merge")
+        self.assertEqual(second.parents, (first.hash, f2.hash))
 
 
 if __name__ == "__main__":

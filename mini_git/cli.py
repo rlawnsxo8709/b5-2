@@ -34,6 +34,8 @@ def _labels(repo, commit_hash):
 
 def _format_log_entry(repo, commit):
     header = f"commit {commit.hash} ({commit.author}, {commit.timestamp.strftime(TIME_FORMAT)})"
+    if len(commit.parents) > 1:
+        header += f" merge: {' '.join(commit.parents)}"
     labels = _labels(repo, commit.hash)
     if labels:
         header += f" [{', '.join(labels)}]"
@@ -68,6 +70,16 @@ def _switch(repo, args):
         return f"Already on branch: {name}"
     repo.switch(name)
     return f"Switched to branch: {name}"
+
+
+def _merge(repo, args):
+    (name,) = _expect(args, 1)
+    status, commit = repo.merge(name)
+    if status == "up-to-date":
+        return "Already up to date"
+    if status == "fast-forward":
+        return f"Fast-forward: {repo.current_branch} -> {repo.head_commit}"
+    return f"[{repo.current_branch} {commit.hash}] {commit.message}"
 
 
 def _log(repo, args):
@@ -126,6 +138,7 @@ COMMANDS = {
     "commit": _commit,
     "branch": _branch,
     "switch": _switch,
+    "merge": _merge,
     "log": _log,
     "path": _path,
     "ancestors": _ancestors,

@@ -159,6 +159,34 @@ class TestCli(unittest.TestCase):
         self.assertIn(f"commit {c2} (Alice, 2026-10-04 09:00:00)\n    Second", execute(r, "log"))
         self.assertIn(c3, execute(r, "log --sort-by=date"))
 
+    def test_merge_output_and_log(self):
+        r = self.r
+        execute(r, "init A")
+        self.commit("root")
+        execute(r, "branch feature")
+        m = self.commit("on main")
+        execute(r, "switch feature")
+        f = self.commit("on feature")
+        execute(r, "switch main")
+        out = execute(r, "MERGE feature")
+        merged = HASH.match(out)
+        self.assertEqual(merged.group(1), "main")
+        self.assertEqual(out, f"[main {merged.group(2)}] Merge branch 'feature' into main")
+        self.assertIn(f"merge: {m} {f}", execute(r, "log"))
+        self.assertEqual(execute(r, "merge feature"), "Already up to date")
+        self.assertEqual(execute(r, "merge nope"), "Unknown branch: nope")
+        self.assertEqual(execute(r, "merge"), "Invalid args")
+
+    def test_merge_fast_forward_output(self):
+        r = self.r
+        execute(r, "init A")
+        self.commit("root")
+        execute(r, "branch feature")
+        execute(r, "switch feature")
+        f = self.commit("on feature")
+        execute(r, "switch main")
+        self.assertEqual(execute(r, "merge feature"), f"Fast-forward: main -> {f}")
+
     def test_ancestors_output(self):
         r = self.r
         execute(r, "init A")
