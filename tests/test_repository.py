@@ -283,6 +283,26 @@ class TestRepository(unittest.TestCase):
         self.assertEqual(status, "merge")
         self.assertEqual(second.parents, (first.hash, f2.hash))
 
+    def test_set_user_changes_author_of_later_commits_only(self):
+        r = self.r
+        r.init("Bob")
+        b1 = r.commit("b1")
+        r.set_user("Alice")
+        a1 = r.commit("a1")
+        r.set_user("Bob")
+        b2 = r.commit("b2")
+        self.assertEqual([c.author for c in (b1, a1, b2)], ["Bob", "Alice", "Bob"])
+        self.assertEqual([c.hash for c in r.log_sorted("author")], [a1.hash, b1.hash, b2.hash])
+        self.assertEqual([c.hash for c in r.search_author("Bob")], [b1.hash, b2.hash])
+        self.assertEqual([c.hash for c in r.search_author("Alice")], [a1.hash])
+
+    def test_set_user_errors(self):
+        with self.assertRaisesRegex(MiniGitError, "not initialized"):
+            self.r.set_user("x")
+        self.r.init("A")
+        with self.assertRaisesRegex(MiniGitError, "Invalid args"):
+            self.r.set_user("  ")
+
 
 if __name__ == "__main__":
     unittest.main()

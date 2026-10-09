@@ -71,6 +71,13 @@ class Repository:
         self._branches = {"main": None}
         self.current_branch = "main"
 
+    def set_user(self, name):
+        """현재 작성자를 바꾼다. 이후 커밋부터 적용되고 기존 커밋은 그대로다."""
+        self._require_init()
+        if not name.strip():
+            raise MiniGitError("Invalid args")
+        self.user = name
+
     def branch(self, name):
         """현재 HEAD 커밋을 가리키는 새 브랜치를 만든다. 첫 커밋 전이면 아직 커밋이 없는 브랜치가 된다."""
         self._require_init()

@@ -52,6 +52,12 @@ def _init(repo, args):
     return f"Initialized repository.\nCurrent branch: {repo.current_branch}\nCurrent user: {repo.user}"
 
 
+def _user(repo, args):
+    (name,) = _expect(args, 1)
+    repo.set_user(name)
+    return f"Current user: {repo.user}"
+
+
 def _commit(repo, args):
     (message,) = _expect(args, 1)
     commit = repo.commit(message)
@@ -135,6 +141,7 @@ def _exit(repo, args):
 
 COMMANDS = {
     "init": _init,
+    "user": _user,
     "commit": _commit,
     "branch": _branch,
     "switch": _switch,

@@ -187,6 +187,23 @@ class TestCli(unittest.TestCase):
         execute(r, "switch main")
         self.assertEqual(execute(r, "merge feature"), f"Fast-forward: main -> {f}")
 
+    def test_user_command_and_author_sort(self):
+        r = self.r
+        self.assertEqual(execute(r, "user Alice"), NOT_INIT)
+        execute(r, 'init "Bob"')
+        b1 = self.commit("b1")
+        self.assertEqual(execute(r, 'USER "Alice Kim"'), "Current user: Alice Kim")
+        a1 = self.commit("a1")
+        execute(r, "user Bob")
+        b2 = self.commit("b2")
+        log = execute(r, "log --sort-by=author")
+        self.assertLess(log.index(a1), log.index(b1))
+        self.assertLess(log.index(b1), log.index(b2))
+        self.assertLess(execute(r, "log").index(b1), execute(r, "log").index(a1))
+        self.assertEqual(execute(r, 'search --author="Alice Kim"'), f"Found 1 commit(s):\n- {a1}: a1")
+        self.assertEqual(execute(r, "user"), "Invalid args")
+        self.assertEqual(execute(r, 'user ""'), "Invalid args")
+
     def test_ancestors_output(self):
         r = self.r
         execute(r, "init A")

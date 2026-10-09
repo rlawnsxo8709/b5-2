@@ -10,7 +10,7 @@
 | 외부 라이브러리 | **없음** (`hashlib`, `shlex`, `datetime`, `collections.deque`) |
 | 저장 방식 | 메모리 (프로세스를 끝내면 사라진다. 영속성은 미션 범위 밖) |
 | 핵심 알고리즘 | Kahn 위상 정렬 · 무방향 BFS 최단 경로 · 조상 BFS · 병합 정렬 · 역색인 |
-| 테스트 | `unittest` 70개 |
+| 테스트 | `unittest` 73개 |
 
 설계 결정은 [PLAN.md](PLAN.md)에 있다.
 
@@ -53,6 +53,7 @@ printf 'init "Alice"\ncommit "Initial commit"\nlog\nexit\n' | python3 main.py
 | 명령 | 형식 | 동작 |
 |---|---|---|
 | `INIT` | `INIT <user_name>` | 저장소를 초기화한다. `main` 브랜치와 HEAD, 현재 사용자(author)를 설정한다. 저장소당 1회 |
+| `USER` | `USER <user_name>` | 현재 작성자를 바꾼다. 이후 커밋부터 적용되고 기존 커밋은 그대로다 (추가 기능) |
 | `BRANCH` | `BRANCH <branch_name>` | 현재 HEAD 커밋을 가리키는 새 브랜치를 만든다 |
 | `SWITCH` | `SWITCH <branch_name>` | HEAD를 지정한 브랜치로 옮긴다 |
 | `COMMIT` | `COMMIT <message>` | 현재 HEAD를 부모로 하는 새 커밋을 만들고 역색인을 갱신한다 |
@@ -304,7 +305,7 @@ Bye
 │   ├── repository.py        상태 소유: 저장소·브랜치·HEAD·사용자·자식 목록
 │   ├── cli.py               파싱·분기·출력, REPL
 │   └── __main__.py          `python -m mini_git`
-├── tests/                   unittest 70개 (단위 · CLI/REPL · 제약 준수 AST 검사)
+├── tests/                   unittest 73개 (단위 · CLI/REPL · 제약 준수 AST 검사)
 └── README.md  PLAN.md
 ```
 
@@ -373,7 +374,7 @@ python3 -m unittest discover -s tests -t . -v
 실행 결과(마지막 3줄):
 
 ```
-Ran 70 tests in 0.070s
+Ran 73 tests in 0.070s
 
 OK
 ```
@@ -392,7 +393,7 @@ OK
 
 ## 알아 둘 점
 
-- **`--sort-by=author`의 다중 작성자**: `INIT`은 저장소당 한 번이고 사용자를 바꾸는 명령이 미션에 없다. 그래서 CLI 세션에서는 작성자가 한 명뿐이다. 여러 작성자가 섞인 정렬은 `Repository.user`를 직접 바꾸는 단위 테스트(`test_log_sorted_by_author_ties_by_seq`, `test_author_search_and_sort`)로 검증했다.
+- **`--sort-by=author`의 다중 작성자**: `INIT`은 저장소당 한 번이지만 `USER <이름>`으로 작성자를 바꿀 수 있어서, CLI에서도 작성자가 섞인 정렬과 `SEARCH --author`를 확인할 수 있다. `USER`는 미션에 없는 추가 명령이다.
 - **`LOG` 순서와 생성 순서**: 커밋의 부모는 항상 먼저 만들어졌으므로 위상 순서는 지금 구조에서 생성 순서와 같게 나온다. 그래도 Kahn 알고리즘으로 "부모 우선"과 사이클 검출을 알고리즘이 직접 보장하게 했다.
 - **실제 그래프 모양**: `MERGE`로 부모가 둘인 커밋을 만들 수 있어서 CLI에서도 다이아몬드 모양 DAG가 나온다. 병합 커밋은 `log`에 `merge: <부모1> <부모2>`로 표시되고, 메시지는 `Merge branch 'x' into main`이다. 파일 내용을 추적하지 않으므로 충돌은 없다. 병합은 git처럼 fast-forward가 가능하면 커밋을 만들지 않는다.
 - **`SEARCH`의 `--`로 시작하는 키워드**: `--author=<name>` 외의 `--xxx`는 옵션 오류(`Invalid args`)로 본다.
