@@ -159,6 +159,51 @@ class TestCli(unittest.TestCase):
         self.assertIn(f"commit {c2} (Alice, 2026-10-04 09:00:00)\n    Second", execute(r, "log"))
         self.assertIn(c3, execute(r, "log --sort-by=date"))
 
+    def test_merge_output_and_log(self):
+        r = self.r
+        execute(r, "init A")
+        self.commit("root")
+        execute(r, "branch feature")
+        m = self.commit("on main")
+        execute(r, "switch feature")
+        f = self.commit("on feature")
+        execute(r, "switch main")
+        out = execute(r, "MERGE feature")
+        merged = HASH.match(out)
+        self.assertEqual(merged.group(1), "main")
+        self.assertEqual(out, f"[main {merged.group(2)}] Merge branch 'feature' into main")
+        self.assertIn(f"merge: {m} {f}", execute(r, "log"))
+        self.assertEqual(execute(r, "merge feature"), "Already up to date")
+        self.assertEqual(execute(r, "merge nope"), "Unknown branch: nope")
+        self.assertEqual(execute(r, "merge"), "Invalid args")
+
+    def test_merge_fast_forward_output(self):
+        r = self.r
+        execute(r, "init A")
+        self.commit("root")
+        execute(r, "branch feature")
+        execute(r, "switch feature")
+        f = self.commit("on feature")
+        execute(r, "switch main")
+        self.assertEqual(execute(r, "merge feature"), f"Fast-forward: main -> {f}")
+
+    def test_user_command_and_author_sort(self):
+        r = self.r
+        self.assertEqual(execute(r, "user Alice"), NOT_INIT)
+        execute(r, 'init "Bob"')
+        b1 = self.commit("b1")
+        self.assertEqual(execute(r, 'USER "Alice Kim"'), "Current user: Alice Kim")
+        a1 = self.commit("a1")
+        execute(r, "user Bob")
+        b2 = self.commit("b2")
+        log = execute(r, "log --sort-by=author")
+        self.assertLess(log.index(a1), log.index(b1))
+        self.assertLess(log.index(b1), log.index(b2))
+        self.assertLess(execute(r, "log").index(b1), execute(r, "log").index(a1))
+        self.assertEqual(execute(r, 'search --author="Alice Kim"'), f"Found 1 commit(s):\n- {a1}: a1")
+        self.assertEqual(execute(r, "user"), "Invalid args")
+        self.assertEqual(execute(r, 'user ""'), "Invalid args")
+
     def test_ancestors_output(self):
         r = self.r
         execute(r, "init A")

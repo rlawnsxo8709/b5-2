@@ -71,6 +71,13 @@ class Repository:
         self._branches = {"main": None}
         self.current_branch = "main"
 
+    def set_user(self, name):
+        """현재 작성자를 바꾼다. 이후 커밋부터 적용되고 기존 커밋은 그대로다."""
+        self._require_init()
+        if not name.strip():
+            raise MiniGitError("Invalid args")
+        self.user = name
+
     def branch(self, name):
         """현재 HEAD 커밋을 가리키는 새 브랜치를 만든다. 첫 커밋 전이면 아직 커밋이 없는 브랜치가 된다."""
         self._require_init()
@@ -93,15 +100,39 @@ class Repository:
         message = message.strip()
         if not message:
             raise MiniGitError("Invalid args")
+        head = self.head_commit
+        return self._add_commit(message, (head,) if head else ())
+
+    def merge(self, name):
+        """브랜치 name을 현재 브랜치에 합친다. (상태, 커밋) 튜플을 돌려준다.
+
+        - "up-to-date": name의 커밋이 이미 현재 브랜치의 이력에 있거나 name에 커밋이 없다. 커밋은 None.
+        - "fast-forward": 현재 브랜치가 name의 조상이다. 브랜치를 옮기기만 하고 커밋은 None.
+        - "merge": 두 갈래가 갈라져 있다. 부모가 (현재 HEAD, name의 커밋) 둘인 병합 커밋을 만든다.
+        """
+        self._require_init()
+        if name not in self._branches:
+            raise MiniGitError(f"Unknown branch: {name}")
+        head = self.head_commit
+        target = self._branches[name]
+        if target is None or target == head or (head and target in ancestors(head, self._parents_of)):
+            return "up-to-date", None
+        if head is None or head in ancestors(target, self._parents_of):
+            self._branches[self.current_branch] = target
+            return "fast-forward", None
+        message = f"Merge branch '{name}' into {self.current_branch}"
+        return "merge", self._add_commit(message, (head, target))
+
+    def _add_commit(self, message, parents):
+        """부모 튜플을 받아 커밋을 저장하고 브랜치·자식 목록·역색인을 갱신한다."""
         seq = len(self._order) + 1
         timestamp = self._clock()
-        head = self.head_commit
         commit = Commit(
             hash=self._new_hash(seq, self.user, message, timestamp),
             message=message,
             author=self.user,
             timestamp=timestamp,
-            parents=(head,) if head else (),
+            parents=parents,
             seq=seq,
         )
         self._commits[commit.hash] = commit
