@@ -1,0 +1,193 @@
+Mini Git 수동 테스트 명령어
+=========================================
+실행:  minigit
+       (alias가 없으면: /usr/local/bin/python3.12 main.py)
+종료:  exit
+※ <...> 로 표시된 해시는 앞 명령 출력에서 복사해서 넣는다. 해시는 실행마다 다르다.
+
+
+[1] 기본 흐름 (미션 예시)
+-----------------------------------------
+init "Alice"
+commit "Initial commit"
+branch feature
+switch feature
+commit "Add login feature"
+switch main
+commit "Add payment feature"
+log
+search "login"
+search --author=Alice
+log --sort-by=date
+log --sort-by=author
+기대: log에서 Initial commit이 가장 먼저. search "login"은 1건.
+
+
+[1-1] USER로 작성자 바꾸기 (작성자 정렬·검색 확인)
+-----------------------------------------
+init "Bob"
+commit "b1"
+user "Alice"
+commit "a1"
+user "Bob"
+commit "b2"
+log
+log --sort-by=author
+search --author=Alice
+search --author=Bob
+user
+기대: log는 b1, a1, b2 / --sort-by=author는 a1(Alice), b1, b2(Bob)
+      search --author=Alice는 a1 한 건, Bob은 b1·b2 두 건, 마지막 "user"는 Invalid args
+
+
+[2] PATH 사전순 동률 (merge로 다이아몬드 만들기)
+-----------------------------------------
+init "Alice"
+commit "root"
+branch f
+commit "m1"
+switch f
+commit "f1"
+switch main
+merge f
+log
+path <root해시> <merge해시>
+path <merge해시> <root해시>
+ancestors <merge해시>
+기대:
+  - log의 merge 커밋 줄에 "merge: <m1해시> <f1해시>" 표시
+  - path 결과는 root->m1->merge 또는 root->f1->merge 중
+    m1, f1 해시 중 사전순으로 더 작은 쪽을 지난다
+  - 반대 방향 path도 같은 두 갈래 중 작은 해시 쪽을 지난다
+  - ancestors는 m1, f1(해시 오름차순), root 순서이고 root는 한 번만 나온다
+
+
+[3] MERGE 상태 3가지
+-----------------------------------------
+init "Alice"
+commit "root"
+branch feature
+switch feature
+commit "on feature"
+switch main
+merge feature
+merge feature
+merge nope
+기대: 첫 merge는 "Fast-forward: main -> <해시>", 두 번째는 "Already up to date",
+      세 번째는 "Unknown branch: nope"
+
+
+[4] 경로 없음 (루트가 둘)
+-----------------------------------------
+init "Alice"
+branch orphan
+commit "on main"
+switch orphan
+commit "on orphan"
+path <main커밋해시> <orphan커밋해시>
+기대: No path
+
+
+[5] 에러 / 경계 입력
+-----------------------------------------
+log
+commit "x"
+hello
+init "Alice Kim"
+init Bob
+log
+commit "Add login feature"
+Commit "Fix LOGIN bug"
+switch nope
+switch main
+branch main
+path onlyone
+path <해시> zzz
+ancestors zzz
+ancestors <첫커밋해시>
+commit Add login
+commit "unterminated
+log --sort-by=size
+LOG --SORT-BY=Date
+search --author="Alice Kim"
+search --author=alice
+search LOGIN
+search "add login"
+search nothing
+quit
+기대(순서대로):
+  Repository not initialized. Use INIT <user_name>  (log, commit, 2줄)
+  Unknown command: hello
+  Initialized repository. ... Current user: Alice Kim
+  Repository already initialized
+  No commits yet
+  [main <해시>] Add login feature
+  [main <해시>] Fix LOGIN bug
+  Unknown branch: nope
+  Already on branch: main
+  Branch already exists: main
+  Invalid args
+  Unknown commit: zzz
+  Unknown commit: zzz
+  No ancestors of <해시>
+  Invalid args  (따옴표 없는 여러 단어)
+  Invalid args  (따옴표 안 닫힘)
+  Invalid args  (sort-by=size)
+  Invalid args  (옵션은 대소문자 정확히)
+  Alice Kim 의 커밋 2건
+  No commits found  (작성자는 대소문자 구분)
+  "login" 포함 2건 (키워드는 대소문자 무시)
+  "add login" 은 두 단어 모두 든 1건
+  No commits found
+  Bye
+
+
+[6] 파이프로 한 번에 실행 (해시 필요 없는 명령만)
+-----------------------------------------
+터미널에서:
+printf 'init "Alice"\ncommit "Initial commit"\nbranch feature\nswitch feature\ncommit "Add login feature"\nswitch main\ncommit "Add payment feature"\nlog\nsearch "login"\nexit\n' | minigit
+
+
+[7] 빠져 있던 경계 입력 (새 세션에서 실행)
+-----------------------------------------
+(a) INIT 전 명령 차단 — 새로 실행한 직후 아래를 입력
+merge main
+branch x
+switch main
+path a b
+ancestors a
+search login
+기대: 전부 "Repository not initialized. Use INIT <user_name>"
+
+(b) 대문자 명령 / 빈 줄
+INIT "Alice"
+(그냥 엔터 — 빈 줄)
+COMMIT "Hello World"
+BRANCH Dev
+SWITCH Dev
+LOG
+SEARCH hello
+SEARCH --AUTHOR=Alice
+기대: 대문자 명령 모두 동작. 빈 줄은 아무 출력 없이 프롬프트만 다시 나온다.
+      "SEARCH hello"는 "Hello World"를 찾는다(키워드 소문자 정규화).
+      "SEARCH --AUTHOR=Alice"는 옵션 이름이 소문자 정확 일치여야 하므로 Invalid args.
+
+(c) 값이 비었거나 잘못된 인자
+search --author=
+search --foo
+search ""
+log extra
+exit now
+기대: 전부 Invalid args  (exit now 도 Invalid args, 종료되지 않음)
+
+(d) 종료 방식
+- Ctrl-D (EOF): 줄바꿈 후 정상 종료
+- Ctrl-C: 트레이스백 없이 줄바꿈 후 정상 종료
+- 종료 직후 echo $?  → 0
+
+
+[8] 자동 테스트
+-----------------------------------------
+cd /Users/kjt87098709/dev/b5-2
+/usr/local/bin/python3.12 -m unittest discover -s tests -t . -v
+기대: Ran 73 tests ... OK
