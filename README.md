@@ -12,7 +12,7 @@
 | 핵심 알고리즘 | Kahn 위상 정렬 · 무방향 BFS 최단 경로 · 조상 BFS · 병합 정렬 · 역색인 |
 | 테스트 | `unittest` 73개 |
 
-설계 결정은 [PLAN.md](PLAN.md)에 있다.
+설계 결정은 [PLAN.md](PLAN.md)에, 알고리즘 설명(위상 정렬 · 병합 정렬 · 병합 후 path/ancestors)은 [docs/](docs/README.md)에 있다.
 
 ---
 
